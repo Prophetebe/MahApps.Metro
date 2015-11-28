@@ -22,6 +22,7 @@ namespace MahApps.Metro.Controls
         public static readonly DependencyProperty UseFloatingWatermarkProperty = DependencyProperty.RegisterAttached("UseFloatingWatermark", typeof(bool), typeof(TextBoxHelper), new FrameworkPropertyMetadata(false, ButtonCommandOrClearTextChanged));
         public static readonly DependencyProperty TextLengthProperty = DependencyProperty.RegisterAttached("TextLength", typeof(int), typeof(TextBoxHelper), new UIPropertyMetadata(0));
         public static readonly DependencyProperty ClearTextButtonProperty = DependencyProperty.RegisterAttached("ClearTextButton", typeof(bool), typeof(TextBoxHelper), new FrameworkPropertyMetadata(false, ButtonCommandOrClearTextChanged));
+        public static readonly DependencyProperty ButtonsAlignmentProperty = DependencyProperty.RegisterAttached("ButtonsAlignment", typeof(ButtonsAlignment), typeof(TextBoxHelper), new FrameworkPropertyMetadata(ButtonsAlignment.Right, FrameworkPropertyMetadataOptions.AffectsArrange | FrameworkPropertyMetadataOptions.AffectsMeasure));
         /// <summary>
         /// The clear text button behavior property. It sets a click event to the button if the value is true.
         /// </summary>
@@ -301,6 +302,22 @@ namespace MahApps.Metro.Controls
         }
 
         /// <summary>
+        /// Gets the buttons placement variant.
+        /// </summary>
+        public static ButtonsAlignment GetButtonsAlignment(DependencyObject d)
+        {
+            return (ButtonsAlignment)d.GetValue(ButtonsAlignmentProperty);
+        }
+
+        /// <summary>
+        /// Sets the buttons placement variant.
+        /// </summary>
+        public static void SetButtonsAlignment(DependencyObject obj, ButtonsAlignment value)
+        {
+            obj.SetValue(ButtonsAlignmentProperty, value);
+        }
+
+        /// <summary>
         /// Gets the clear text button behavior.
         /// </summary>
         [AttachedPropertyBrowsableForType(typeof(Button))]
@@ -317,6 +334,8 @@ namespace MahApps.Metro.Controls
         {
             obj.SetValue(IsClearTextButtonBehaviorEnabledProperty, value);
         }
+
+        
 
         public static ICommand GetButtonCommand(DependencyObject d)
         {

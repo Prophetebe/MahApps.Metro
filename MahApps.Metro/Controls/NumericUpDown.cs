@@ -46,9 +46,10 @@ namespace MahApps.Metro.Controls
 
         private static void IsReadOnlyPropertyChangedCallback(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs e)
         {
-            if (e.OldValue != e.NewValue && e.NewValue != null) {
+            if (e.OldValue != e.NewValue && e.NewValue != null)
+            {
                 var numUpDown = (NumericUpDown)dependencyObject;
-                numUpDown.ToggleReadOnlyMode((bool)e.NewValue);
+                numUpDown.ToggleReadOnlyMode((bool)e.NewValue | !numUpDown.InterceptManualEnter);
             }
         }
 
@@ -69,6 +70,12 @@ namespace MahApps.Metro.Controls
             typeof(double?),
             typeof(NumericUpDown),
             new FrameworkPropertyMetadata(default(double?), FrameworkPropertyMetadataOptions.BindsTwoWayByDefault, OnValueChanged, CoerceValue));
+
+        public static readonly DependencyProperty ButtonsAlignmentProperty = DependencyProperty.Register(
+           "ButtonsAlignment",
+           typeof(ButtonsAlignment),
+           typeof(NumericUpDown),
+           new FrameworkPropertyMetadata(ButtonsAlignment.Right, FrameworkPropertyMetadataOptions.AffectsArrange | FrameworkPropertyMetadataOptions.AffectsMeasure));
 
         public static readonly DependencyProperty MinimumProperty = DependencyProperty.Register(
             "Minimum",
@@ -116,14 +123,23 @@ namespace MahApps.Metro.Controls
             "InterceptManualEnter",
             typeof(bool),
             typeof(NumericUpDown),
-            new PropertyMetadata(true));
+            new PropertyMetadata(true, InterceptManualEnterChangedCallback));
+
+        private static void InterceptManualEnterChangedCallback(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.OldValue != e.NewValue && e.NewValue != null)
+            {
+                var numUpDown = (NumericUpDown)dependencyObject;
+                numUpDown.ToggleReadOnlyMode(!(bool)e.NewValue | numUpDown.IsReadOnly);
+            }
+        }
 
         public static readonly DependencyProperty CultureProperty = DependencyProperty.Register(
             "Culture",
             typeof(CultureInfo),
             typeof(NumericUpDown),
             new PropertyMetadata(null, (o, e) => {
-                                            if (e.NewValue != e.OldValue && e.NewValue != null)
+                                            if (e.NewValue != e.OldValue)
                                             {
                                                 var numUpDown = (NumericUpDown) o;
                                                 numUpDown.OnValueChanged(numUpDown.Value, numUpDown.Value);
@@ -136,6 +152,12 @@ namespace MahApps.Metro.Controls
             typeof(NumericUpDown),
             new PropertyMetadata(true));
 
+        public static readonly DependencyProperty HasDecimalsProperty = DependencyProperty.Register(
+            "HasDecimals",
+            typeof(bool), 
+            typeof(NumericUpDown),
+            new FrameworkPropertyMetadata(true, OnHasDecimalsChanged));
+        
         private const double DefaultInterval = 1d;
         private const int DefaultDelay = 500;
         private const string ElementNumericDown = "PART_NumericDown";
@@ -163,7 +185,6 @@ namespace MahApps.Metro.Controls
             HorizontalContentAlignmentProperty.OverrideMetadata(typeof(NumericUpDown), new FrameworkPropertyMetadata(HorizontalAlignment.Right));
 
             EventManager.RegisterClassHandler(typeof(NumericUpDown), UIElement.GotFocusEvent, new RoutedEventHandler(OnGotFocus));
-            
         }
 
         public event RoutedPropertyChangedEventHandler<double?> ValueChanged
@@ -318,6 +339,15 @@ namespace MahApps.Metro.Controls
         }
 
         [Bindable(true)]
+        [Category("Appearance")]
+        [DefaultValue(ButtonsAlignment.Right)]
+        public Controls.ButtonsAlignment ButtonsAlignment
+        {
+            get { return (ButtonsAlignment)GetValue(ButtonsAlignmentProperty); }
+            set { SetValue(ButtonsAlignmentProperty, value); }
+        }
+
+        [Bindable(true)]
         [Category("Behavior")]
         [DefaultValue(DefaultInterval)]
         public double Interval
@@ -418,6 +448,18 @@ namespace MahApps.Metro.Controls
             get { return Culture ?? Language.GetSpecificCulture(); }
         }
 
+        /// <summary>
+        ///     Indicates if the NumericUpDown should show the decimal separator or not.
+        /// </summary>
+        [Bindable(true)]
+        [Category("Common")]
+        [DefaultValue(true)]
+        public bool HasDecimals
+        {
+            get { return (bool)GetValue(HasDecimalsProperty); }
+            set { SetValue(HasDecimalsProperty, value); }
+        }
+
         /// <summary> 
         ///     Called when this element or any below gets focus.
         /// </summary>
@@ -465,7 +507,7 @@ namespace MahApps.Metro.Controls
                 throw new InvalidOperationException(string.Format("You have missed to specify {0}, {1} or {2} in your template", ElementNumericUp, ElementNumericDown, ElementTextBox));
             }
 
-            this.ToggleReadOnlyMode(this.IsReadOnly);
+            this.ToggleReadOnlyMode(this.IsReadOnly | !this.InterceptManualEnter);
 
             _repeatUp.Click += (o, e) => ChangeValueWithSpeedUp(true);
             _repeatDown.Click += (o, e) => ChangeValueWithSpeedUp(false);
@@ -474,6 +516,7 @@ namespace MahApps.Metro.Controls
             _repeatDown.PreviewMouseUp += (o, e) => ResetInternal();
             
             OnValueChanged(Value, Value);
+
             _scrollViewer = TryFindScrollViewer();
         }
 
@@ -487,7 +530,6 @@ namespace MahApps.Metro.Controls
             if (isReadOnly)
             {
                 _valueTextBox.LostFocus -= OnTextBoxLostFocus;
-                _valueTextBox.GotFocus -= OnTextBoxGotFocus;
                 _valueTextBox.PreviewTextInput -= OnPreviewTextInput;
                 _valueTextBox.PreviewKeyDown -= OnTextBoxKeyDown;
                 _valueTextBox.TextChanged -= OnTextChanged;
@@ -496,19 +538,10 @@ namespace MahApps.Metro.Controls
             else
             {
                 _valueTextBox.LostFocus += OnTextBoxLostFocus;
-                _valueTextBox.GotFocus += OnTextBoxGotFocus;
                 _valueTextBox.PreviewTextInput += OnPreviewTextInput;
                 _valueTextBox.PreviewKeyDown += OnTextBoxKeyDown;
                 _valueTextBox.TextChanged += OnTextChanged;
                 DataObject.AddPastingHandler(_valueTextBox, OnValueTextBoxPaste);
-            }
-        }
-
-        private void OnTextBoxGotFocus(object sender, RoutedEventArgs e)
-        {
-            if (!InterceptManualEnter)
-            {
-                Focus();
             }
         }
 
@@ -637,7 +670,10 @@ namespace MahApps.Metro.Controls
                 {
                     if (textBox.Text.All(i => i.ToString(equivalentCulture) != numberFormatInfo.NumberDecimalSeparator) || allTextSelected)
                     {
-                        e.Handled = false;
+                        if (HasDecimals)
+                        {
+                            e.Handled = false;
+                        }
                     }
                 }
                 else
@@ -704,17 +740,19 @@ namespace MahApps.Metro.Controls
                     {
                         _valueTextBox.Text = null;
                     }
+                    if (oldValue != newValue)
+                    {
+                        this.RaiseEvent(new RoutedPropertyChangedEventArgs<double?>(oldValue, newValue, ValueChangedEvent));
+                    }
                     return;
                 }
 
-                if (_repeatUp != null &&
-                    !_repeatUp.IsEnabled)
+                if (_repeatUp != null && !_repeatUp.IsEnabled)
                 {
                     _repeatUp.IsEnabled = true;
                 }
 
-                if (_repeatDown != null &&
-                    !_repeatDown.IsEnabled)
+                if (_repeatDown != null && !_repeatDown.IsEnabled)
                 {
                     _repeatDown.IsEnabled = true;
                 }
@@ -756,8 +794,7 @@ namespace MahApps.Metro.Controls
 
             if (oldValue != newValue)
             {
-                var eventArgs = new RoutedPropertyChangedEventArgs<double?>(oldValue, newValue, ValueChangedEvent);
-                RaiseEvent(eventArgs);
+                this.RaiseEvent(new RoutedPropertyChangedEventArgs<double?>(oldValue, newValue, ValueChangedEvent));
             }
         }
 
@@ -783,6 +820,10 @@ namespace MahApps.Metro.Controls
             var numericUpDown = (NumericUpDown)d;
             double val = ((double?)value).Value;
 
+            if (numericUpDown.HasDecimals == false)
+            {
+                val = Math.Truncate(val);
+            }
             if (val < numericUpDown.Minimum)
             {
                 return numericUpDown.Minimum;
@@ -843,7 +884,7 @@ namespace MahApps.Metro.Controls
             if (nud._valueTextBox != null &&
                 nud.Value.HasValue)
             {
-                nud._valueTextBox.Text = nud.Value.Value.ToString((string)e.NewValue);
+                nud.InternalSetText(nud.Value);
             }
         }
 
@@ -854,7 +895,18 @@ namespace MahApps.Metro.Controls
             numericUpDown.OnValueChanged((double?)e.OldValue, (double?)e.NewValue);
         }
 
-        private static bool ValidateDelay(object value)
+        private static void OnHasDecimalsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var numericUpDown = (NumericUpDown)d;
+            double? oldValue = numericUpDown.Value;
+
+            if ((bool)e.NewValue == false && numericUpDown.Value != null)
+            {
+                numericUpDown.Value = Math.Truncate(numericUpDown.Value.GetValueOrDefault());
+            }
+        }
+
+      private static bool ValidateDelay(object value)
         {
             return Convert.ToInt32(value) >= 0;
         }
@@ -891,14 +943,12 @@ namespace MahApps.Metro.Controls
         private ScrollViewer TryFindScrollViewer()
         {
             _valueTextBox.ApplyTemplate();
-            var style = _valueTextBox.Template.FindName("PART_ContentHost", _valueTextBox) as ScrollViewer;
-
-            if (style != null)
+            var scrollViewer = _valueTextBox.Template.FindName("PART_ContentHost", _valueTextBox) as ScrollViewer;
+            if (scrollViewer != null)
             {
                 _handlesMouseWheelScrolling = new Lazy<PropertyInfo>(() => _scrollViewer.GetType().GetProperties(BindingFlags.NonPublic | BindingFlags.Instance).SingleOrDefault(i => i.Name == "HandlesMouseWheelScrolling"));
             }
-
-            return style;
+            return scrollViewer;
         }
 
         private void ChangeValueWithSpeedUp(bool toPositive)

@@ -19,7 +19,7 @@ namespace MetroDemo
         {
             _viewModel = new MainWindowViewModel(DialogCoordinator.Instance);
             DataContext = _viewModel;
-            
+
             InitializeComponent();
 
             flyoutDemo = new FlyoutDemo();
@@ -147,6 +147,7 @@ namespace MetroDemo
         private async void ShowDialogOutside(object sender, RoutedEventArgs e)
         {
             var dialog = (BaseMetroDialog)this.Resources["CustomDialogTest"];
+            dialog.DialogSettings.ColorScheme = MetroDialogOptions.ColorScheme;
             dialog = dialog.ShowDialogExternally();
 
             await TaskEx.Delay(5000);
@@ -200,7 +201,15 @@ namespace MetroDemo
 
             await this.ShowMetroDialogAsync(dialog);
 
+            var textBlock = dialog.FindChild<TextBlock>("MessageTextBlock");
+            textBlock.Text = "A message box will appear in 5 seconds.";
+
             await TaskEx.Delay(5000);
+
+            await this.ShowMessageAsync("Secondary dialog", "This message is shown on top of another.");
+
+            textBlock.Text = "The dialog will close in 2 seconds.";
+            await TaskEx.Delay(2000);
 
             await this.HideMetroDialogAsync(dialog);
         }
@@ -237,6 +246,7 @@ namespace MetroDemo
         private async void ShowProgressDialog(object sender, RoutedEventArgs e)
         {
             var controller = await this.ShowProgressAsync("Please wait...", "We are baking some cupcakes!");
+            controller.SetIndeterminate();
 
             await TaskEx.Delay(5000);
 
@@ -352,7 +362,7 @@ namespace MetroDemo
             w.Content = new TextBlock() { Text = "MetroWindow with a Border", FontSize = 28, FontWeight = FontWeights.Light, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
             w.BorderThickness = new Thickness(1);
             w.GlowBrush = null;
-            w.BorderBrush = this.FindResource("AccentColorBrush") as Brush;
+            w.SetResourceReference(MetroWindow.BorderBrushProperty, "AccentColorBrush");
             w.Show();
         }
 
@@ -362,7 +372,7 @@ namespace MetroDemo
             w.Content = new TextBlock() { Text = "MetroWindow with a Glow", FontSize = 28, FontWeight = FontWeights.Light, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center };
             w.BorderThickness = new Thickness(1);
             w.BorderBrush = null;
-            w.GlowBrush = this.FindResource("AccentColorBrush") as SolidColorBrush;
+            w.SetResourceReference(MetroWindow.GlowBrushProperty, "AccentColorBrush");
             w.Show();
         }
 
@@ -374,7 +384,5 @@ namespace MetroDemo
             w.EnableDWMDropShadow = true;
             w.Show();
         }
-
-
     }
 }
